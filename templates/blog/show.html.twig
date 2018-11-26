@@ -1,15 +1,18 @@
+{# templates/blog/show.html.twig #}
 {% extends 'base.html.twig' %}
+
+{% block title %}{{ slug }}{% endblock %}
+
+{% block stylesheets %}{% endblock %}
+
 {% block body %}
-    {% for category in categories %}
-        <h2>{{ category.name }}</h2>
-        <ul>
-        {% for article in category.articles %}
-                <li>{{ article.title }}</li>
-        {% endfor %}
-        </ul>
-    {% endfor %}
+    <div>
+        <h1>Real article s title : {{ article.title }}</h1>
+        <h2>Category : {{ article.category.name }}</h2>
+        <p>Formatted slug : {{ slug }}</p>
+        <p>{{ article.content }}</p>
+    </div>
+    <a href="{{ path('homepage') }}">
+        Back to homepage.
+    </a>
 {% endblock %}
-
-
-
-

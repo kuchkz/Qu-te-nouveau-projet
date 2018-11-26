@@ -1,43 +1,147 @@
 <?php
-
+/**
+ * Blog controller file
+ *
+ * PHP Version 7.2
+ *
+ * @category Controller
+ * @package  Controller
+ * @author   Gaëtan Rolé-Dubruille <gaetan@wildcodeschool.fr>
+ */
 namespace App\Controller;
 
-use App\Repository\CategoryRepository;
+use App\Entity\Article;
+use App\Entity\Category;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
 
+/**
+ * Blog controller.
+ *
+ * @Route("blog")
+ *
+ * @category Controller
+ * @package  Controller
+ * @author   Gaëtan Rolé-Dubruille <gaetan@wildcodeschool.fr>
+ */
 class BlogController extends AbstractController
 {
     /**
-     * @Route("/blog/show/{slug<^$|[a-z0-9](-?[a-z0-9])*$>}", name="blog_show", defaults={"slug"="Article sans Titre"})
+     * Show all row from article's entity
+     *
+     * @Route("/", name="blog_index")
+     * @return     Response A response instance
      */
-    public function show($slug)
+    public function index()
     {
-        if (empty($slug))
-            $finalSlug = "Article Sans Titre";
-        else {
-            $replace = str_replace("-", " ", $slug);
-            $finalSlug = ucwords($replace);
+        $articles = $this->getDoctrine()
+            ->getRepository(Article::class)
+            ->findAll();
+
+        if (!$articles) {
+            throw $this->createNotFoundException(
+                'No article found in article\'s table.'
+            );
         }
 
-        return $this->render('blog/index.html.twig', [
-            'controller_name' => 'BlogController',
-            "Titre" => $finalSlug,
-        ]);
+        return $this->render(
+            'blog/index.html.twig',
+            ['articles' => $articles]
+        );
     }
 
     /**
-     * @Route("/blog", name="blog_showcategory")
-     * @param CategoryRepository $categoryRepository
-     * @return \Symfony\Component\HttpFoundation\Response
+     * Show a formatted argument
+     *
+     * @param string $slug The slugger
+     *
+     * @Route("/{slug<^[a-z0-9-]*$>}",
+     *     name="blog_show")
+     * @return                         Response A response instance
      */
-    public function showCategories(CategoryRepository $categoryRepository)
+    public function show($slug): Response
     {
-        $categories = $categoryRepository->findAll();
+        if (!$slug) {
+            throw $this->createNotFoundException(
+                'No slug has been sent to find article in article\'s table.'
+            );
+        }
 
-        return $this->render('blog/show.html.twig', [
-            'categories' => $categories
-        ]);
+        $slug = preg_replace(
+            '/-/',
+            ' ', ucwords(trim(strip_tags($slug)), "-")
+        );
 
+        $article = $this->getDoctrine()
+            ->getRepository(Article::class)
+            ->findOneBy(['title' => mb_strtolower($slug)]);
+
+        if (!$article) {
+            throw $this->createNotFoundException(
+                'No article with '.$slug.' title, found in article\'s table.'
+            );
+        }
+
+        return $this->render(
+            'blog/show.html.twig',
+            [
+                'slug' => $slug,
+                'article' => $article
+            ]
+        );
+    }
+
+    /**
+     * Show articles according to categories
+     *
+     * @Route("/category/{category}", name="blog_show_category")
+     *
+     * @ParamConverter("category", options={"mapping": {"category": "name"}})
+     * @return                     Response A response instance
+     */
+    public function showByCategory(Category $category)
+    {
+        if (!$category) {
+            return $this->redirectToRoute("blog_index");
+        }
+
+        $articles = $this->getDoctrine()
+            ->getRepository(Article::class)
+            ->findBy(
+                ['category' => $category],
+                ['id' => 'DESC'],
+                3
+            );
+
+        if (!$articles) {
+            throw $this->createNotFoundException(
+                'No article found for '.$category->getName().'.'
+            );
+        }
+
+        return $this->render(
+            'blog/category.html.twig',
+            ['category' => $category,
+                'articles' => $articles]
+        );
+    }
+
+    /**
+     * Show articles according to categories with bidirectional
+     *
+     * @Route("/category/{category}/all", name="blog_show_all_category")
+     *
+     * @ParamConverter("category", options={"mapping": {"category": "name"}})
+     * @return                     Response A response instance
+     */
+    public function showAllByCategory(Category $category)
+    {
+        return $this->render(
+            'blog/category.html.twig',
+            ['category' => $category,
+                'articles' => $category->getArticles()]
+        );
     }
 }
